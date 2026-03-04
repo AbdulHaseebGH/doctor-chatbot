@@ -1,0 +1,79 @@
+{
+  "info": {
+    "name": "Doctor Chatbot API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health Check - Gateway",
+      "request": {
+        "method": "GET",
+        "url": {"raw": "http://localhost:8000/health"}
+      }
+    },
+    {
+      "name": "Health Check - Conversation",
+      "request": {
+        "method": "GET",
+        "url": {"raw": "http://localhost:8001/health"}
+      }
+    },
+    {
+      "name": "Health Check - Memory",
+      "request": {
+        "method": "GET",
+        "url": {"raw": "http://localhost:8002/health"}
+      }
+    },
+    {
+      "name": "Health Check - LLM",
+      "request": {
+        "method": "GET",
+        "url": {"raw": "http://localhost:8003/health"}
+      }
+    },
+    {
+      "name": "Create Session",
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "url": {"raw": "http://localhost:8000/session"},
+        "body": {"mode": "raw", "raw": "{}"}
+      }
+    },
+    {
+      "name": "Get Patient Profile",
+      "request": {
+        "method": "GET",
+        "url": {"raw": "http://localhost:8002/patient/889bc7cc"}
+      }
+    },
+    {
+      "name": "Search Patient by Name and Phone",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "http://localhost:8002/patient/search?name=Ahmed&phone=0300-1234567",
+          "query": [
+            {"key": "name", "value": "Ahmed"},
+            {"key": "phone", "value": "0300-1234567"}
+          ]
+        }
+      }
+    },
+    {
+      "name": "Get Session Context",
+      "request": {
+        "method": "GET",
+        "url": {"raw": "http://localhost:8002/session/YOUR_SESSION_ID/context"}
+      }
+    },
+    {
+      "name": "Delete Session",
+      "request": {
+        "method": "DELETE",
+        "url": {"raw": "http://localhost:8000/session/YOUR_SESSION_ID"}
+      }
+    }
+  ]
+}
