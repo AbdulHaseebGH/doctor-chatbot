@@ -17,16 +17,6 @@ function App() {
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
 
-  const createSession = async () => {
-    const res = await fetch(`${GATEWAY_URL}/session`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({}),
-    });
-    const data = await res.json();
-    return data.session_id;
-  };
-
   const connectWebSocket = useCallback((sessionId, chatId) => {
     if (wsRef.current) wsRef.current.close();
     const ws = new WebSocket(`${WS_URL}/ws/chat/${sessionId}`);
@@ -97,10 +87,10 @@ const createNewChat = useCallback(async () => {
 }, [connectWebSocket]);
 
   // Init with one chat
-  useEffect(() => {
+    useEffect(() => {
     createNewChat();
     return () => wsRef.current?.close();
-  }, []);
+  }, [createNewChat]);
 
   // Scroll to bottom on new messages
   useEffect(() => {
