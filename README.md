@@ -1,6 +1,6 @@
 # 🏥 City Medical Clinic — Conversational AI Receptionist
 
-A fully local, production-style conversational AI system simulating a medical clinic front desk receptionist. Built for CS 4063 - Natural Language Processing, Assignment 2.
+A fully local, production-style conversational AI system simulating a medical clinic front desk receptionist with **voice capabilities**. Built for CS 4063 - Natural Language Processing.
 
 ## 🎯 Business Use Case
 
@@ -10,13 +10,14 @@ A fully local, production-style conversational AI system simulating a medical cl
 - Schedules appointments
 - Maintains patient history across sessions
 - Operates strictly within clinic domain
+- **Supports voice input and audio responses**
 
 ---
 
 ## 🏗️ System Architecture
 ```
-Browser (React)
-      │ WebSocket
+Browser (React + Voice UI)
+      │ WebSocket / HTTP
       ▼
 API Gateway :8000
       │ HTTP
@@ -24,17 +25,32 @@ API Gateway :8000
       │         │ HTTP
       │         ├──► Memory Service :8002 ◄──► SQLite DB
       │         └──► LLM Engine :8003 ◄──► LM Studio :1234
-      └──► Memory Service :8002
+      ├──► Memory Service :8002
+      ├──► ASR Service :8004 (faster-whisper, Speech→Text)
+      └──► TTS Service :8005 (piper-tts, Text→Speech)
+```
+
+### Voice Pipeline Flow
+```
+Browser Mic → WebM audio blob
+    → POST /api/voice/transcribe (ASR service)
+    → transcribed text displayed in input
+    → POST via WebSocket to /ws/chat (existing LLM chat)
+    → LLM response text
+    → POST /api/voice/synthesize (TTS service)
+    → audio stream → browser plays audio
 ```
 
 ### Microservices
 
 | Service | Port | Responsibility |
 |---------|------|----------------|
-| API Gateway | 8000 | WebSocket handler, request routing, session creation |
+| API Gateway | 8000 | WebSocket handler, request routing, session creation, voice proxy |
 | Conversation Manager | 8001 | Session orchestration, prompt building, SNR filtering |
 | Memory Service | 8002 | Short/long term memory, SQLite CRUD, patient profiles |
 | LLM Engine | 8003 | LM Studio API wrapper, streaming inference |
+| **ASR Service** | **8004** | **Speech-to-text via faster-whisper (int8, CPU)** |
+| **TTS Service** | **8005** | **Text-to-speech via piper-tts (CPU)** |
 
 ---
 
@@ -44,28 +60,33 @@ API Gateway :8000
 - Sliding window of last 20 conversation turns
 - **SNR (Signal-to-Noise Ratio) filtering** — only meaningful clinical information is retained
 - Signal keywords: symptoms, names, phone numbers, appointment times, medical terms
-- Noise discarded: greetings, filler words, short acknowledgements
 
 ### Long-Term Memory (Across Sessions)
 - Patient profiles stored in SQLite database
 - Automatic extraction of patient info using LLM after each turn
 - Smart patient matching by name + phone number combination
-- Returning patients recognized automatically — profile injected into system prompt
-- Cross-session context: "Welcome back Ahmed! I see you previously had chest pain"
+- Returning patients recognized automatically
 
-### SNR Filtering Logic
-```python
-SIGNAL_KEYWORDS = [
-    "pain", "fever", "appointment", "doctor", "name", "age", "phone",
-    "symptoms", "headache", "chest", "breathe", "dizzy", "morning",
-    "afternoon", "years", "old", "number", "insurance", "emergency"
-]
+---
 
-def is_signal(text: str) -> bool:
-    if len(text.split()) < 4:
-        return False  # Too short = noise
-    return any(keyword in text.lower() for keyword in SIGNAL_KEYWORDS)
-```
+## 🎤 Voice Agent
+
+### ASR (Speech-to-Text)
+- **Model**: faster-whisper `base` (~140 MB)
+- **Quantization**: int8 via CTranslate2
+- **Performance**: <500ms for 5-second audio clip
+- **Features**: VAD filtering, beam_size=1 for speed
+
+### TTS (Text-to-Speech)
+- **Engine**: piper-tts
+- **Voice**: en_US-lessac-medium (clear American English)
+- **Performance**: <300ms first audio chunk
+- **Output**: 16-bit PCM WAV at 22050 Hz
+
+### Concurrency
+- Max 4 simultaneous voice sessions
+- Returns HTTP 503 with clear message if capacity exceeded
+- Uses asyncio.Semaphore for async queue management
 
 ---
 
@@ -79,32 +100,6 @@ def is_signal(text: str) -> bool:
 | Model Size | ~2.1 GB |
 | RAM Usage | ~2.5 GB |
 | Runs on | CPU only |
-
-**Justification:** Qwen2.5-3B-Instruct-Q4_K_M was selected as it falls within the assignment's recommended 0.6B–4B range, runs efficiently on CPU via LM Studio/llama.cpp, and provides coherent multi-turn dialogue for a medical receptionist use case without requiring GPU acceleration.
-
----
-
-## ⚡ Performance Benchmarks
-
-### Inference Latency (Non-Streaming, Direct LLM Service)
-
-| Test Query | Response Time |
-|------------|--------------|
-| Appointment request | 15.3s |
-| Symptom description | 29.3s |
-| Clinic hours query | 28.2s |
-| **Average** | **24.3s** |
-
-### Hardware
-- CPU: Intel Core i7-6820HQ @ 2.70GHz (4 cores, 8 threads, Skylake)
-- RAM: 16GB
-- GPU: None (CPU-only inference)
-- Storage: 1TB NVMe SSD
-
-### Streaming Performance
-- First token latency: ~2-3 seconds
-- Perceived response time with streaming: significantly better than raw numbers suggest
-- Streaming makes 24s average feel like real-time to users
 
 ---
 
@@ -126,10 +121,16 @@ cd doctor-chatbot
 - Load `Qwen2.5-3B-Instruct-Q4_K_M`
 - Start Local Server on port 1234
 
-### 3. Start Backend Services
+### 3. Start All Backend Services (Docker)
 ```bash
 docker-compose up --build
 ```
+
+This starts 6 services:
+- Gateway (8000), Conversation (8001), Memory (8002), LLM (8003)
+- ASR (8004), TTS (8005)
+
+> **Note**: First build will take longer as ASR downloads the Whisper model (~140MB) and TTS downloads the Piper voice model (~100MB).
 
 Verify all services:
 ```bash
@@ -137,6 +138,8 @@ curl http://localhost:8000/health
 curl http://localhost:8001/health
 curl http://localhost:8002/health
 curl http://localhost:8003/health
+curl http://localhost:8004/health
+curl http://localhost:8005/health
 ```
 
 ### 4. Start Frontend
@@ -150,36 +153,30 @@ Frontend runs on `http://localhost:3000`
 
 ---
 
-## 📁 Project Structure
+## 🌐 Deployment
+
+### Frontend (Vercel)
+The frontend is deployable on Vercel. Set these environment variables:
 ```
-doctor-chatbot/
-├── gateway/                 # API Gateway (Port 8000)
-│   ├── app/main.py
-│   ├── Dockerfile
-│   └── requirements.txt
-├── conversation/            # Conversation Manager (Port 8001)
-│   ├── app/
-│   │   ├── main.py
-│   │   └── prompts.py
-│   ├── Dockerfile
-│   └── requirements.txt
-├── memory/                  # Memory Service (Port 8002)
-│   ├── app/main.py
-│   ├── data/patients.db
-│   ├── Dockerfile
-│   └── requirements.txt
-├── llm/                     # LLM Engine (Port 8003)
-│   ├── app/main.py
-│   ├── Dockerfile
-│   └── requirements.txt
-├── frontend/                # React Frontend
-│   └── src/
-│       ├── App.js
-│       └── App.css
-├── docker-compose.yml
-├── postman_collection.json
-└── README.md
+REACT_APP_API_URL=https://your-backend-url.onrender.com
+REACT_APP_WS_URL=wss://your-backend-url.onrender.com
 ```
+
+### Backend (Render)
+A unified backend is available in the `backend/` folder with `render.yaml` config:
+```bash
+cd backend
+# Contains: main.py, routes/, services/, Dockerfile, render.yaml
+```
+
+**Environment variables for Render:**
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `CONVERSATION_URL` | Conversation service URL | `http://conversation:8001` |
+| `MEMORY_URL` | Memory service URL | `http://memory:8002` |
+| `LLM_URL` | LLM service URL | `http://llm:8003` |
+| `ASR_URL` | ASR service URL | `http://asr:8004` |
+| `TTS_URL` | TTS service URL | `http://tts:8005` |
 
 ---
 
@@ -194,6 +191,9 @@ doctor-chatbot/
 | DELETE | `/session/{id}` | Delete session |
 | GET | `/patient/{id}` | Get patient profile |
 | GET | `/patient/search?name=&phone=` | Search patient |
+| **POST** | **`/api/voice/transcribe`** | **Audio file → transcribed text** |
+| **POST** | **`/api/voice/synthesize`** | **Text → audio WAV stream** |
+| **POST** | **`/api/voice/chat`** | **Full pipeline: audio → LLM → audio** |
 
 ### WebSocket
 ```
@@ -210,54 +210,116 @@ ws://localhost:8000/ws/chat/{session_id}
 {"token": "", "done": true}
 ```
 
+### Voice API Details
+
+**POST /api/voice/transcribe**
+```bash
+curl -X POST http://localhost:8000/api/voice/transcribe \
+  -F "file=@audio.webm"
+```
+Response: `{"text": "I need to see a doctor", "duration_ms": 420}`
+
+**POST /api/voice/synthesize**
+```bash
+curl -X POST http://localhost:8000/api/voice/synthesize \
+  -H "Content-Type: application/json" \
+  -d '{"text": "How can I help you?"}' \
+  --output speech.wav
+```
+
+**POST /api/voice/chat** (full pipeline)
+```bash
+curl -X POST http://localhost:8000/api/voice/chat \
+  -F "file=@audio.webm" \
+  -F "session_id=your-session-id" \
+  --output response.wav
+```
+
+---
+
+## 📁 Project Structure
+```
+doctor-chatbot/
+├── gateway/                 # API Gateway (Port 8000)
+│   ├── app/main.py          # WebSocket, REST routes, voice proxy
+│   ├── Dockerfile
+│   └── requirements.txt
+├── conversation/            # Conversation Manager (Port 8001)
+│   ├── app/
+│   │   ├── main.py
+│   │   └── prompts.py       # System prompt with guardrails
+│   ├── Dockerfile
+│   └── requirements.txt
+├── memory/                  # Memory Service (Port 8002)
+│   ├── app/main.py
+│   ├── data/patients.db
+│   ├── Dockerfile
+│   └── requirements.txt
+├── llm/                     # LLM Engine (Port 8003)
+│   ├── app/main.py
+│   ├── Dockerfile
+│   └── requirements.txt
+├── asr/                     # ASR Service (Port 8004) ← NEW
+│   ├── app/main.py          # faster-whisper transcription
+│   ├── Dockerfile
+│   └── requirements.txt
+├── tts/                     # TTS Service (Port 8005) ← NEW
+│   ├── app/main.py          # piper-tts synthesis
+│   ├── Dockerfile
+│   └── requirements.txt
+├── backend/                 # Unified Backend (for Render) ← NEW
+│   ├── main.py
+│   ├── routes/
+│   │   ├── chat.py
+│   │   └── voice.py
+│   ├── services/
+│   │   ├── asr_service.py
+│   │   ├── tts_service.py
+│   │   ├── llm_service.py
+│   │   └── memory_service.py
+│   ├── prompts.py
+│   ├── Dockerfile
+│   ├── requirements.txt
+│   └── render.yaml
+├── frontend/                # React Frontend ← IMPROVED
+│   └── src/
+│       ├── App.js           # Voice UI, FAQ chips, timestamps
+│       └── App.css          # Navy/indigo dark theme
+├── docker-compose.yml       # All 6 services
+├── postman_collection.json
+└── README.md
+```
+
 ---
 
 ## ✅ System Features
 
 - ✅ Fully local inference — no cloud APIs
+- ✅ **Voice input via browser microphone (ASR)**
+- ✅ **Audio responses via TTS playback**
+- ✅ **Voice concurrency limiter (max 4 sessions)**
 - ✅ Instruction-tuned conversational responses
+- ✅ **Improved LLM guardrails** (domain lock, prompt injection defense, emergency protocol)
 - ✅ Short-term memory with SNR filtering
 - ✅ Long-term patient profiles across sessions
 - ✅ CPU-optimized inference via Q4_K_M quantization
 - ✅ Real-time streaming token output
 - ✅ Multi-session support (ChatGPT-style)
+- ✅ **Redesigned UI** (navy/indigo theme, FAQ chips, timestamps, copy buttons)
+- ✅ **Mobile responsive layout**
 - ✅ Microservices architecture
 - ✅ Dockerized deployment
-- ✅ React frontend with dark theme
+- ✅ **Render-ready backend** with render.yaml
 
 ---
 
 ## ⚠️ Known Limitations
 
-- Inference speed is slow on CPU-only hardware (~24s average)
+- LLM inference speed is slow on CPU-only hardware (~24s average) — voice pipeline adds minimal overhead
 - LM Studio must be running separately before starting Docker services
-- Patient matching relies on phone number — patients without phone on file may not be recognized across sessions
-- Model occasionally goes off-domain despite strict system prompt
-- No persistent frontend state — chat history lost on page refresh
-
----
-
-## 🧪 Testing
-
-### Run All Health Checks
-```bash
-curl http://localhost:8000/health
-curl http://localhost:8001/health
-curl http://localhost:8002/health
-curl http://localhost:8003/health
-```
-
-### Test Memory
-```bash
-# Check patient profile
-curl http://localhost:8002/patient/{patient_id}
-
-# Check session context
-curl http://localhost:8002/session/{session_id}/context
-```
-
-### Import Postman Collection
-Import `postman_collection.json` into Postman for full API testing.
+- Patient matching relies on phone number — patients without phone may not be recognized
+- First Docker build is slower due to model downloads (ASR ~140MB, TTS ~100MB)
+- Voice requires microphone permission in browser
 
 ---
 

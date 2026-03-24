@@ -1,3 +1,15 @@
+# --------------------------------------------------------------------------
+# docker-compose.yml — City Medical Clinic Chatbot
+#
+# Services:
+#   - gateway:      API Gateway (port 8000) — routes requests, WebSocket proxy
+#   - conversation:  Conversation Manager (port 8001) — prompt building, SNR
+#   - memory:        Memory Service (port 8002) — SQLite, patient profiles
+#   - llm:           LLM Engine (port 8003) — LM Studio wrapper
+#   - asr:           Speech-to-Text (port 8004) — faster-whisper, int8 CPU
+#   - tts:           Text-to-Speech (port 8005) — piper-tts, CPU
+# --------------------------------------------------------------------------
+
 version: '3.8'
 
 services:
@@ -9,6 +21,8 @@ services:
       - conversation
       - memory
       - llm
+      - asr
+      - tts
     networks:
       - clinic-network
 
@@ -37,6 +51,34 @@ services:
       - "8003:8003"
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    networks:
+      - clinic-network
+
+  # ── Voice Pipeline Services ──
+
+  asr:
+    build: ./asr
+    ports:
+      - "8004:8004"
+    environment:
+      - MODEL_SIZE=base
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+    networks:
+      - clinic-network
+
+  tts:
+    build: ./tts
+    ports:
+      - "8005:8005"
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
     networks:
       - clinic-network
 

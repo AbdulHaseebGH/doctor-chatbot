@@ -1,0 +1,31 @@
+# --------------------------------------------------------------------------
+# render.yaml — Render.com deployment configuration for the backend service
+#
+# Defines how to build and run the backend on Render.
+# Environment variables must be set in the Render dashboard.
+# --------------------------------------------------------------------------
+
+services:
+  - type: web
+    name: doctor-chatbot-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    envVars:
+      # URL of the conversation microservice (if running separately)
+      - key: CONVERSATION_URL
+        value: http://conversation:8001
+      # URL of the memory microservice
+      - key: MEMORY_URL
+        value: http://memory:8002
+      # URL of the LLM microservice
+      - key: LLM_URL
+        value: http://llm:8003
+      # URL of the ASR microservice
+      - key: ASR_URL
+        value: http://asr:8004
+      # URL of the TTS microservice
+      - key: TTS_URL
+        value: http://tts:8005
+    healthCheckPath: /health
+    plan: starter
