@@ -1,0 +1,34 @@
+Frequently Asked Questions — City Medical Clinic
+
+Q: How do I book an appointment?
+A: You can book an appointment by calling (555) 123-4567 or by speaking to Sara, the AI receptionist. Provide your name, phone number, preferred date and time, and the reason for your visit.
+
+Q: Can I walk in without an appointment?
+A: Yes, walk-ins are accepted during business hours (Monday–Saturday, 9am–6pm). However, booked appointments are given priority. Walk-ins may need to wait.
+
+Q: What documents do I need to bring?
+A: Bring a valid photo ID and your health insurance card. If you are a returning patient, bring any previous prescriptions or test results relevant to your visit.
+
+Q: How long does an appointment typically take?
+A: A general consultation with Dr. Ahmed takes approximately 15–30 minutes. Specialist appointments with Dr. Alina or Dr. Khan may take 30–45 minutes.
+
+Q: What is the cancellation policy?
+A: Please cancel or reschedule at least 24 hours in advance by calling (555) 123-4567. Late cancellations may result in a cancellation fee.
+
+Q: Does the clinic offer telehealth or phone consultations?
+A: At this time, the clinic only offers in-person consultations. Please visit during clinic hours.
+
+Q: What should I do in a medical emergency?
+A: Call 911 or go to the nearest emergency room immediately. City Medical Clinic is not an emergency facility. For life-threatening situations such as chest pain, difficulty breathing, or loss of consciousness, do not come to the clinic — call 911.
+
+Q: How do I get my test results?
+A: Test results are communicated by your doctor. You can call the clinic after 48–72 hours of your test date to inquire about results. Results are not shared over email for privacy reasons.
+
+Q: Does the clinic accept children?
+A: Yes. Dr. Alina is our Pediatrician, available Monday, Wednesday, and Friday. She handles patients from newborn to age 18.
+
+Q: How do I refill a prescription?
+A: Call the clinic at (555) 123-4567 and request a prescription refill. The doctor will review your case before approving. Allow 24 hours for refill processing.
+
+Q: What payment methods are accepted?
+A: The clinic accepts cash, debit cards, and major credit cards. Insurance billing is handled directly for supported plans.

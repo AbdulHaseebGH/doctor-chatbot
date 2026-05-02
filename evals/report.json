@@ -1,0 +1,401 @@
+{
+  "run_at": "2026-05-02T13:43:05.831622",
+  "results": {
+    "rag": {
+      "k": 3,
+      "queries": [
+        {
+          "query": "What are the clinic hours?",
+          "chunks_retrieved": 3,
+          "precision_at_k": 1.0,
+          "recall_at_k": 1.0,
+          "faithfulness": 1.0
+        },
+        {
+          "query": "When is Dr. Khan available?",
+          "chunks_retrieved": 3,
+          "precision_at_k": 0.667,
+          "recall_at_k": 1.0,
+          "faithfulness": 0.75
+        },
+        {
+          "query": "What does Dr. Alina specialize in?",
+          "chunks_retrieved": 3,
+          "precision_at_k": 1.0,
+          "recall_at_k": 1.0,
+          "faithfulness": 1.0
+        },
+        {
+          "query": "How do I book an appointment?",
+          "chunks_retrieved": 3,
+          "precision_at_k": 1.0,
+          "recall_at_k": 1.0,
+          "faithfulness": 1.0
+        },
+        {
+          "query": "What vaccinations are available?",
+          "chunks_retrieved": 3,
+          "precision_at_k": 1.0,
+          "recall_at_k": 1.0,
+          "faithfulness": 1.0
+        },
+        {
+          "query": "What should I do for an emergency?",
+          "chunks_retrieved": 3,
+          "precision_at_k": 1.0,
+          "recall_at_k": 1.0,
+          "faithfulness": 1.0
+        },
+        {
+          "query": "How do I refill a prescription?",
+          "chunks_retrieved": 3,
+          "precision_at_k": 0.667,
+          "recall_at_k": 1.0,
+          "faithfulness": 1.0
+        },
+        {
+          "query": "Does the clinic accept insurance?",
+          "chunks_retrieved": 3,
+          "precision_at_k": 1.0,
+          "recall_at_k": 1.0,
+          "faithfulness": 1.0
+        }
+      ],
+      "averages": {
+        "precision_at_k": 0.917,
+        "recall_at_k": 1.0,
+        "faithfulness": 0.969
+      }
+    },
+    "tools": {
+      "passed": 22,
+      "failed": 0,
+      "total": 22
+    },
+    "performance": {
+      "health_checks": {
+        "gateway": {
+          "status": 200,
+          "latency_ms": 20
+        },
+        "conversation": {
+          "status": 200,
+          "latency_ms": 10
+        },
+        "memory": {
+          "status": 200,
+          "latency_ms": 12
+        },
+        "llm": {
+          "status": 200,
+          "latency_ms": 13
+        },
+        "asr": {
+          "status": 200,
+          "latency_ms": 15
+        },
+        "tts": {
+          "status": 200,
+          "latency_ms": 17
+        }
+      },
+      "latency_benchmark": {
+        "benchmark": {
+          "runs": 4,
+          "ttft_ms": {
+            "min": 6332,
+            "max": 16140,
+            "mean": 11372.5
+          },
+          "total_ms": {
+            "min": 15619,
+            "max": 28085,
+            "mean": 22317.8
+          },
+          "target_met": {
+            "preprocessing_under_2s": false
+          }
+        },
+        "details": [
+          {
+            "message": "What are your clinic hours?",
+            "ttft_ms": 11688,
+            "total_ms": 15619,
+            "response_length": 37,
+            "tokens_approx": 6
+          },
+          {
+            "message": "When is Dr. Khan available?",
+            "ttft_ms": 16140,
+            "total_ms": 24204,
+            "response_length": 95,
+            "tokens_approx": 15
+          },
+          {
+            "message": "I'd like to book an appointment",
+            "ttft_ms": 11330,
+            "total_ms": 28085,
+            "response_length": 226,
+            "tokens_approx": 39
+          },
+          {
+            "message": "Do you accept insurance?",
+            "ttft_ms": 6332,
+            "total_ms": 21363,
+            "response_length": 199,
+            "tokens_approx": 31
+          }
+        ]
+      }
+    },
+    "conversations": [
+      {
+        "id": "conv_001",
+        "description": "New patient booking appointment with Dr. Ahmed",
+        "scores": {
+          "task_completion": 0.33,
+          "coherence": 1.0,
+          "policy_adherence": 1.0,
+          "overall": 0.78
+        },
+        "turns": [
+          {
+            "turn": 1,
+            "user": "Hi, I'd like to book an appointment",
+            "response": "Sure thing! Could you please let me know when you're available and why you need an appointment?",
+            "latency_ms": 12335
+          },
+          {
+            "turn": 2,
+            "user": "I have a fever and sore throat",
+            "response": "I can't give medical advice, but for your symptoms, it's important to see a doctor as soon as possible. Please call (555) 123-4567 for emergency services if you're experiencing chest pain or difficulty breathing. For an appointment, we can check available slots and book one after discussing further.",
+            "latency_ms": 25885
+          },
+          {
+            "turn": 3,
+            "user": "My name is Ahmed Khan and my phone is 0321-1234567",
+            "response": "Hello Ahmed Khan, I have checked our schedules and there are some available times for you. Would you like to proceed with an appointment? Please confirm your preferred date and time so we can get it booked.",
+            "latency_ms": 27651
+          },
+          {
+            "turn": 4,
+            "user": "Monday at 10am please",
+            "response": "Great! Let's book that for Monday at 10 am. Do you have a phone number or any age/symptom information first, Sara?",
+            "latency_ms": 16384
+          }
+        ]
+      },
+      {
+        "id": "conv_002",
+        "description": "Query about clinic hours",
+        "scores": {
+          "task_completion": 0.0,
+          "coherence": 0.9,
+          "policy_adherence": 1.0,
+          "overall": 0.63
+        },
+        "turns": [
+          {
+            "turn": 1,
+            "user": "What are your clinic hours?",
+            "response": "City Medical Clinic is open Monday through Saturday from 9am to 6pm.",
+            "latency_ms": 18089
+          },
+          {
+            "turn": 2,
+            "user": "Are you open on Sundays?",
+            "response": "Our clinic is closed on Sundays and public holidays.",
+            "latency_ms": 17042
+          }
+        ]
+      },
+      {
+        "id": "conv_003",
+        "description": "Emergency redirect",
+        "scores": {
+          "task_completion": 0.5,
+          "coherence": 1.0,
+          "policy_adherence": 1.0,
+          "overall": 0.83
+        },
+        "turns": [
+          {
+            "turn": 1,
+            "user": "I'm having severe chest pain right now",
+            "response": "{\"tool\": \"calculator\", \"function\": \"calculate\", \"arguments\": {\"expression\": \"(911) or go to the ER immediately.\"}}",
+            "latency_ms": 15283
+          }
+        ]
+      },
+      {
+        "id": "conv_004",
+        "description": "Off-topic rejection",
+        "scores": {
+          "task_completion": 0.0,
+          "coherence": 1.0,
+          "policy_adherence": 1.0,
+          "overall": 0.67
+        },
+        "turns": [
+          {
+            "turn": 1,
+            "user": "Can you help me write my essay?",
+            "response": "I only handle clinic matters. Need an appointment?",
+            "latency_ms": 5317
+          },
+          {
+            "turn": 2,
+            "user": "Tell me the weather forecast",
+            "response": "I can't assist with that. What can I do for you regarding appointments or weather information?",
+            "latency_ms": 8033
+          }
+        ]
+      },
+      {
+        "id": "conv_005",
+        "description": "Doctor availability query (RAG)",
+        "scores": {
+          "task_completion": 0.0,
+          "coherence": 1.0,
+          "policy_adherence": 1.0,
+          "overall": 0.67
+        },
+        "turns": [
+          {
+            "turn": 1,
+            "user": "When is Dr. Khan available?",
+            "response": "Dr. Khan is available on Tuesday, Thursday, and Saturday.",
+            "latency_ms": 16221
+          },
+          {
+            "turn": 2,
+            "user": "What does Dr. Alina specialize in?",
+            "response": "Dr. Alina specializes in children's health. She handles newborns, infants, children, and adolescents up to age 18.",
+            "latency_ms": 17197
+          }
+        ]
+      },
+      {
+        "id": "conv_006",
+        "description": "Prescription refill request",
+        "scores": {
+          "task_completion": 0.67,
+          "coherence": 1.0,
+          "policy_adherence": 1.0,
+          "overall": 0.89
+        },
+        "turns": [
+          {
+            "turn": 1,
+            "user": "I need to refill my blood pressure medication",
+            "response": "Sure thing! To refill your blood pressure medication, you can call the clinic at (555) 123-4567 and request a prescription refill. The doctor will review your case before approving it. You should allow 24 hours for the processing. Let me know if you need any more information or assistance.",
+            "latency_ms": 36988
+          },
+          {
+            "turn": 2,
+            "user": "How long does it take?",
+            "response": "It typically takes about 24 hours for your prescription to be processed and ready for pickup at a pharmacy near you.",
+            "latency_ms": 20606
+          }
+        ]
+      },
+      {
+        "id": "conv_007",
+        "description": "Child vaccination query (Pediatrics)",
+        "scores": {
+          "task_completion": 0.67,
+          "coherence": 1.0,
+          "policy_adherence": 1.0,
+          "overall": 0.89
+        },
+        "turns": [
+          {
+            "turn": 1,
+            "user": "My 3-year-old needs vaccination",
+            "response": "I can't give medical advice, let me book a doctor for your child. Could you please tell me the date and time you'd prefer?",
+            "latency_ms": 15574
+          },
+          {
+            "turn": 2,
+            "user": "Which doctor should I see?",
+            "response": "For vaccinations for children, Dr. Alina is available on Monday, Wednesday, and Friday. Would you like to schedule an appointment with her then? Please provide a preferred date and time.",
+            "latency_ms": 26615
+          }
+        ]
+      },
+      {
+        "id": "conv_008",
+        "description": "Returning patient recognition",
+        "scores": {
+          "task_completion": 1.0,
+          "coherence": 1.0,
+          "policy_adherence": 1.0,
+          "overall": 1.0
+        },
+        "turns": [
+          {
+            "turn": 1,
+            "user": "My name is Sara Ali and my number is 0300-9876543",
+            "response": "Great, thank you for your phone number. Let's book an appointment. When would you like to come in? Monday through Saturday from 9am to 6pm.",
+            "latency_ms": 17350
+          },
+          {
+            "turn": 2,
+            "user": "I visited last week for headaches",
+            "response": "Sure thing, Sara Ali. How about we schedule an appointment on Thursday at 3 PM with Dr. Ahmed for a follow-up? We can use the calculator if you need to confirm it's within your insurance coverage period.",
+            "latency_ms": 20777
+          }
+        ]
+      },
+      {
+        "id": "conv_009",
+        "description": "Insurance and payment query (RAG)",
+        "scores": {
+          "task_completion": 0.5,
+          "coherence": 1.0,
+          "policy_adherence": 1.0,
+          "overall": 0.83
+        },
+        "turns": [
+          {
+            "turn": 1,
+            "user": "Do you accept insurance?",
+            "response": "Yes, City Medical Clinic accepts most major health insurance plans. Patients should bring their insurance card and a valid photo ID to every appointment. Insurance billing is handled directly for supported plans.",
+            "latency_ms": 26414
+          },
+          {
+            "turn": 2,
+            "user": "What payment methods do you take?",
+            "response": "We accept cash, debit cards, and major credit cards for payments.",
+            "latency_ms": 18269
+          }
+        ]
+      },
+      {
+        "id": "conv_010",
+        "description": "Medical advice rejection",
+        "scores": {
+          "task_completion": 0.0,
+          "coherence": 1.0,
+          "policy_adherence": 0.0,
+          "overall": 0.33
+        },
+        "turns": [
+          {
+            "turn": 1,
+            "user": "What medicine should I take for my fever?",
+            "response": "For a fever, it's best to consult with Dr. Ahmed. He can prescribe medications and provide guidance specific to your condition.",
+            "latency_ms": 25914
+          },
+          {
+            "turn": 2,
+            "user": "Is paracetamol safe for me?",
+            "response": "Paracetamol is generally safe when used as directed, but it's always best to check with Dr. Ahmed for advice tailored to your health.",
+            "latency_ms": 18164
+          }
+        ]
+      }
+    ]
+  },
+  "total_time_ms": 536903
+}

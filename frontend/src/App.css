@@ -12,37 +12,37 @@
 
 :root {
   /* ── Core palette ── */
-  --bg-primary: #0F172A;
-  --bg-secondary: #1E293B;
-  --bg-sidebar: #0B1120;
-  --bg-input: #1E293B;
-  --bg-hover: #334155;
-  --bg-card: #1E293B;
-  --bg-user-bubble: #4F46E5;
+  --bg-primary: #F8FAFC;
+  --bg-secondary: #FFFFFF;
+  --bg-sidebar: #F1F5F9;
+  --bg-input: #FFFFFF;
+  --bg-hover: #E2E8F0;
+  --bg-card: #FFFFFF;
+  --bg-user-bubble: #0EA5E9;
 
   /* ── Text colors ── */
-  --text-primary: #F1F5F9;
-  --text-secondary: #94A3B8;
-  --text-muted: #64748B;
+  --text-primary: #1E293B;
+  --text-secondary: #475569;
+  --text-muted: #94A3B8;
   --text-on-accent: #FFFFFF;
 
   /* ── Accent ── */
-  --accent: #6366F1;
-  --accent-hover: #818CF8;
-  --accent-dim: rgba(99, 102, 241, 0.15);
-  --accent-glow: rgba(99, 102, 241, 0.3);
+  --accent: #14B8A6; /* Soothing Teal */
+  --accent-hover: #0D9488;
+  --accent-dim: rgba(20, 184, 166, 0.15);
+  --accent-glow: rgba(20, 184, 166, 0.3);
 
   /* ── Status colors ── */
-  --success: #22C55E;
+  --success: #10B981;
   --danger: #EF4444;
   --warning: #F59E0B;
 
   /* ── Misc ── */
-  --border: #334155;
-  --border-light: #475569;
+  --border: #E2E8F0;
+  --border-light: #CBD5E1;
   --radius: 12px;
   --radius-lg: 16px;
-  --shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+  --shadow: 0 4px 24px rgba(0, 0, 0, 0.05);
   --transition: 0.2s ease;
 }
 
@@ -404,8 +404,29 @@ body {
 .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
 
 @keyframes pulse {
-  0%, 80%, 100% { opacity: 0.4; transform: scale(0.8); }
-  40% { opacity: 1; transform: scale(1); }
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4); }
+  70% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(220, 38, 38, 0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+}
+
+.mic-btn.recording {
+  background-color: #dc2626 !important;
+  color: white !important;
+  animation: pulse 1.5s infinite;
+}
+
+.listening-indicator {
+  font-style: italic;
+  color: var(--accent);
+  font-size: 13px;
+  animation: blink 1.5s infinite;
+  margin-left: 8px;
+}
+
+@keyframes blink {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
 }
 
 /* ════════════════════════════════════════════════════════════════════

@@ -60,18 +60,75 @@ function App() {
   // Voice state
   const [isRecording, setIsRecording] = useState(false);
   const [voiceState, setVoiceState] = useState(null); // null | "recording" | "processing" | "speaking"
+  const [recordingMode, setRecordingMode] = useState(null); // "batch" | "stream"
   const [isMuted, setIsMuted] = useState(false);
   const [copiedId, setCopiedId] = useState(null);
 
   // Refs
   const wsRef = useRef(null);
+  const asrWsRef = useRef(null);
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const streamStartRef = useRef(null);
+  const ttsBufferRef = useRef("");
+  const audioQueueRef = useRef([]);
+  const isPlayingAudioRef = useRef(false);
+  const recognitionIntervalRef = useRef(null);
+  const audioContextRef = useRef(null);
+  const analyserRef = useRef(null);
+
 
   // ---------------------------------------------------------------------------
+  
+  const fetchAndQueueTTS = async (text) => {
+    if (isMuted || !text.trim()) return;
+    try {
+      const response = await fetch(`${API_URL}/api/voice/synthesize`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      if (response.ok) {
+        const audioBlob = await response.blob();
+        audioQueueRef.current.push(audioBlob);
+        playNextAudio();
+      }
+    } catch (err) {
+      console.warn("TTS fetch failed:", err);
+    }
+  };
+
+  const playNextAudio = () => {
+    if (isPlayingAudioRef.current || audioQueueRef.current.length === 0) return;
+    isPlayingAudioRef.current = true;
+    setVoiceState("speaking");
+    
+    const audioBlob = audioQueueRef.current.shift();
+    const audioUrl = URL.createObjectURL(audioBlob);
+    const audio = new Audio(audioUrl);
+    
+    audio.onended = () => {
+      URL.revokeObjectURL(audioUrl);
+      isPlayingAudioRef.current = false;
+      playNextAudio();
+      if (audioQueueRef.current.length === 0 && !isStreaming) {
+        setVoiceState(null);
+      }
+    };
+    audio.onerror = () => {
+      URL.revokeObjectURL(audioUrl);
+      isPlayingAudioRef.current = false;
+      playNextAudio();
+    };
+    audio.play().catch(err => {
+      console.error("Audio play failed:", err);
+      isPlayingAudioRef.current = false;
+      playNextAudio();
+    });
+  };
+
   // WebSocket connection
   // ---------------------------------------------------------------------------
   const connectWebSocket = useCallback((sessionId, chatId) => {
@@ -81,7 +138,12 @@ function App() {
     ws.onclose = () => setIsConnected(false);
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
+
       if (data.done) {
+        if (ttsBufferRef.current.trim()) {
+           fetchAndQueueTTS(ttsBufferRef.current.trim());
+           ttsBufferRef.current = "";
+        }
         setIsStreaming(false);
         // Mark streaming done and calculate response time
         setChats((prev) =>
@@ -105,6 +167,22 @@ function App() {
         return;
       }
       if (data.token) {
+        const token = data.token;
+        ttsBufferRef.current += token;
+        
+        let text = ttsBufferRef.current;
+        const match = text.match(/([.?!]+|\n)(?=\s|$)/);
+        if (match) {
+           const splitIndex = match.index + match[0].length;
+           const chunk = text.slice(0, splitIndex).trim();
+           if (chunk) fetchAndQueueTTS(chunk);
+           ttsBufferRef.current = text.slice(splitIndex);
+        } else if (text.length > 50 && text.includes(' ')) {
+           const lastSpace = text.lastIndexOf(' ');
+           const chunk = text.slice(0, lastSpace).trim();
+           if (chunk) fetchAndQueueTTS(chunk);
+           ttsBufferRef.current = text.slice(lastSpace);
+        }
         setChats((prev) =>
           prev.map((c) => {
             if (c.id !== chatId) return c;
@@ -171,6 +249,14 @@ function App() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chats, activeChatId]);
 
+  // Auto-resize textarea as text grows
+  useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.style.height = "auto";
+      inputRef.current.style.height = Math.min(inputRef.current.scrollHeight, 120) + "px";
+    }
+  }, [input]);
+
   const switchChat = (chat) => {
     if (isStreaming) return;
     setActiveChatId(chat.id);
@@ -198,9 +284,8 @@ function App() {
       return remaining;
     });
   };
-
   // ---------------------------------------------------------------------------
-  // Send text message
+  // Messaging Logic
   // ---------------------------------------------------------------------------
   const sendMessage = (messageText) => {
     const text = messageText || input;
@@ -272,9 +357,8 @@ function App() {
   };
 
   // ---------------------------------------------------------------------------
-  // Voice recording — uses MediaRecorder API to capture mic audio
-  // ---------------------------------------------------------------------------
   const startRecording = async () => {
+    let initialText = input.trim();
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaRecorder = new MediaRecorder(stream, {
@@ -284,168 +368,230 @@ function App() {
       });
 
       audioChunksRef.current = [];
-
       mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
+        if (event.data.size > 0) audioChunksRef.current.push(event.data);
       };
 
       mediaRecorder.onstop = async () => {
-        // Stop all tracks to release mic
-        stream.getTracks().forEach((track) => track.stop());
-
-        const audioBlob = new Blob(audioChunksRef.current, {
-          type: "audio/webm",
-        });
-        await processVoiceInput(audioBlob);
+        stream.getTracks().forEach((t) => t.stop());
+        clearInterval(recognitionIntervalRef.current);
+        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+        await processVoiceInput(audioBlob, true, initialText);
       };
 
       mediaRecorderRef.current = mediaRecorder;
-      mediaRecorder.start();
+      mediaRecorder.start(1000);
       setIsRecording(true);
+      setRecordingMode("batch");
       setVoiceState("recording");
+
+      // Interval for fast intermediate feedback (ChatGPT style)
+      recognitionIntervalRef.current = setInterval(async () => {
+        if (audioChunksRef.current.length > 0) {
+          const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+          await processVoiceInput(audioBlob, false, initialText);
+        }
+      }, 700);
+
+      // --- SILENCE DETECTION (VAD) ---
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const source = audioContext.createMediaStreamSource(stream);
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 256;
+      source.connect(analyser);
+      audioContextRef.current = audioContext;
+      const bufferLength = analyser.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
+      
+      let lastSpeakTime = Date.now();
+      const checkSilence = () => {
+        if (!mediaRecorderRef.current || mediaRecorderRef.current.state !== "recording") return;
+        analyser.getByteTimeDomainData(dataArray);
+        
+        // Calculate root mean square (RMS) for more accurate volume
+        let sum = 0;
+        for (let i = 0; i < bufferLength; i++) {
+          const amplitude = dataArray[i] - 128;
+          sum += amplitude * amplitude;
+        }
+        const rms = Math.sqrt(sum / bufferLength);
+
+        if (rms > 5) { // Time domain threshold (5 out of 128)
+          lastSpeakTime = Date.now();
+        } else {
+          // If silent for 1.5 seconds, stop recording
+          if (Date.now() - lastSpeakTime > 1500) {
+            stopRecording();
+            return;
+          }
+        }
+        requestAnimationFrame(checkSilence);
+      };
+      
+      requestAnimationFrame(checkSilence);
+
     } catch (err) {
       console.error("Mic access denied:", err);
-      alert(
-        "Microphone access is required for voice input. Please allow mic access and try again."
-      );
+      alert("Microphone access is required.");
     }
   };
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
+    if (recordingMode === "batch" && mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
       mediaRecorderRef.current.stop();
-      setIsRecording(false);
+    } else if (recordingMode === "stream") {
+      if (asrWsRef.current) {
+        if (asrWsRef.current.readyState === WebSocket.OPEN) {
+          asrWsRef.current.send(new ArrayBuffer(0)); // signal end to server
+          asrWsRef.current.close();
+        }
+        asrWsRef.current = null;
+      }
+      if (mediaRecorderRef.current) {
+        const { stream, processor, source } = mediaRecorderRef.current;
+        if (processor) processor.disconnect();
+        if (source) source.disconnect();
+        if (stream) stream.getTracks().forEach(t => t.stop());
+        mediaRecorderRef.current = null;
+      }
+    }
+    setIsRecording(false);
+    setRecordingMode(null);
+    if (audioContextRef.current && recordingMode === "stream") {
+       audioContextRef.current.close().catch(() => {});
+       audioContextRef.current = null;
+    }
+  };
+
+  const startStreamingRecording = async () => {
+    let currentCommitted = input.trim();
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      
+      const ws = new WebSocket(`${WS_URL}/ws/asr-stream`);
+      asrWsRef.current = ws;
+
+      ws.onopen = () => {
+        setIsRecording(true);
+        setRecordingMode("stream");
+        setVoiceState("recording");
+
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+        audioContextRef.current = audioContext;
+        const source = audioContext.createMediaStreamSource(stream);
+        
+        // Setup analyser for silence detection (frontend VAD)
+        const analyser = audioContext.createAnalyser();
+        analyser.fftSize = 256;
+        source.connect(analyser);
+        const bufferLength = analyser.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+        
+        let lastSpeakTime = Date.now();
+        const checkSilence = () => {
+          if (!asrWsRef.current || asrWsRef.current.readyState !== WebSocket.OPEN) return;
+          analyser.getByteTimeDomainData(dataArray);
+          
+          let sum = 0;
+          for (let i = 0; i < bufferLength; i++) {
+            const amplitude = dataArray[i] - 128;
+            sum += amplitude * amplitude;
+          }
+          const rms = Math.sqrt(sum / bufferLength);
+
+          if (rms > 5) { // Time domain threshold (5 out of 128)
+            lastSpeakTime = Date.now();
+          } else {
+            // Stop streaming if silent for 1.5 seconds
+            if (Date.now() - lastSpeakTime > 1500) {
+              stopRecording();
+              return;
+            }
+          }
+          requestAnimationFrame(checkSilence);
+        };
+        requestAnimationFrame(checkSilence);
+
+        // Setup processor for PCM extraction
+        const processor = audioContext.createScriptProcessor(4096, 1, 1);
+        
+        source.connect(processor);
+        processor.connect(audioContext.destination);
+
+        processor.onaudioprocess = (e) => {
+          const inputData = e.inputBuffer.getChannelData(0);
+          const pcmData = new Int16Array(inputData.length);
+          for (let i = 0; i < inputData.length; i++) {
+            let s = Math.max(-1, Math.min(1, inputData[i]));
+            pcmData[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+          }
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(pcmData.buffer);
+          }
+        };
+
+        mediaRecorderRef.current = { stream, processor, source, analyser };
+      };
+
+      ws.onmessage = (event) => {
+        const res = JSON.parse(event.data);
+        if (res.partial) {
+          const partialText = res.partial.trim();
+          if (partialText) {
+            setInput(currentCommitted + (currentCommitted ? " " : "") + partialText);
+          }
+        } else if (res.text) {
+          const finalChunk = res.text.trim();
+          if (finalChunk) {
+            currentCommitted = currentCommitted + (currentCommitted ? " " : "") + finalChunk;
+            setInput(currentCommitted);
+          }
+        } else if (res.done) {
+          stopRecording();
+        }
+      };
+
+      ws.onclose = () => stopRecording();
+
+    } catch (err) {
+      console.error("Mic access denied:", err);
+      alert("Microphone access is required.");
     }
   };
 
   const toggleRecording = () => {
-    if (isRecording) {
-      stopRecording();
-    } else {
-      startRecording();
-    }
+    if (isRecording) stopRecording();
+    else startRecording();
   };
 
-  // ---------------------------------------------------------------------------
-  // Process voice input — send to ASR, get transcription, then send as chat
-  // ---------------------------------------------------------------------------
-  const processVoiceInput = async (audioBlob) => {
-    setVoiceState("processing");
+  const processVoiceInput = async (audioBlob, isFinal = false, initialText = "") => {
+    if (!isFinal) setVoiceState("recording");
+    else setVoiceState("processing");
 
     try {
-      // Send audio to ASR endpoint for transcription
       const formData = new FormData();
       formData.append("file", audioBlob, "recording.webm");
-
-      const response = await fetch(`${API_URL}/api/voice/transcribe`, {
-        method: "POST",
-        body: formData,
-      });
-
-      if (response.status === 503) {
-        alert(
-          "Voice service is at capacity. Please try again in a few seconds."
-        );
-        setVoiceState(null);
-        return;
+      const resp = await fetch(`${API_URL}/api/voice/transcribe`, { method: "POST", body: formData });
+      if (resp.ok) {
+        const result = await resp.json();
+        const text = result.text?.trim();
+        if (text) {
+          setInput(initialText + (initialText ? " " : "") + text);
+        }
       }
-
-      if (!response.ok) {
-        throw new Error(`ASR failed: ${response.status}`);
-      }
-
-      const result = await response.json();
-      const transcribedText = result.text?.trim();
-
-      if (!transcribedText) {
-        alert("Could not understand the audio. Please try again.");
-        setVoiceState(null);
-        return;
-      }
-
-      // Show transcribed text in input so user can see/edit it
-      setInput(transcribedText);
-      setVoiceState(null);
-
-      // Auto-send after showing briefly
-      setTimeout(() => {
-        sendMessage(transcribedText);
-      }, 500);
     } catch (err) {
-      console.error("Voice processing error:", err);
-      setVoiceState(null);
-      alert("Voice processing failed. Make sure the backend services are running.");
+      console.warn("ASR Error:", err);
+    } finally {
+      if (isFinal) {
+        setVoiceState(null);
+        if (audioContextRef.current) {
+          audioContextRef.current.close().catch(() => {});
+          audioContextRef.current = null;
+        }
+      }
     }
   };
 
-  // ---------------------------------------------------------------------------
-  // TTS playback — synthesize AI response audio and play it
-  // ---------------------------------------------------------------------------
-  const playTTS = async (text) => {
-    if (isMuted || !text.trim()) return;
-
-    setVoiceState("speaking");
-    try {
-      const response = await fetch(`${API_URL}/api/voice/synthesize`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: text.slice(0, 500) }),
-      });
-
-      if (!response.ok) {
-        console.warn("TTS unavailable:", response.status);
-        setVoiceState(null);
-        return;
-      }
-
-      const audioBlob = await response.blob();
-      const audioUrl = URL.createObjectURL(audioBlob);
-      const audio = new Audio(audioUrl);
-
-      audio.onended = () => {
-        setVoiceState(null);
-        URL.revokeObjectURL(audioUrl);
-      };
-
-      audio.onerror = () => {
-        setVoiceState(null);
-        URL.revokeObjectURL(audioUrl);
-      };
-
-      await audio.play();
-    } catch (err) {
-      console.warn("TTS playback failed (service may not be running):", err);
-      setVoiceState(null);
-    }
-  };
-
-  // Auto-play TTS when a non-streaming assistant message arrives
-  // Only trigger for the most recent message that just finished streaming
-  useEffect(() => {
-    if (isMuted) return;
-    const activeChat = chats.find((c) => c.id === activeChatId);
-    if (!activeChat) return;
-
-    const msgs = activeChat.messages;
-    const lastMsg = msgs[msgs.length - 1];
-
-    // Play TTS only when streaming just finished (streaming was true, now false)
-    // and the message has actual content
-    if (
-      lastMsg?.role === "assistant" &&
-      lastMsg.streaming === false &&
-      lastMsg.content &&
-      lastMsg.responseTime // This is set when streaming completes
-    ) {
-      // Only play if service is likely available (don't spam errors)
-      playTTS(lastMsg.content);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isStreaming]);
-
-  // ---------------------------------------------------------------------------
   // Format timestamp
   // ---------------------------------------------------------------------------
   const formatTime = (isoString) => {
@@ -577,13 +723,14 @@ function App() {
                     {msg.role === "assistant" ? (
                       <>
                         <ReactMarkdown>{msg.content}</ReactMarkdown>
-                        {msg.streaming && msg.content === "" && (
+                        {msg.streaming && msg.content === "" && msg.role === "assistant" && (
                           <span className="typing-dots">
                             <span></span>
                             <span></span>
                             <span></span>
                           </span>
                         )}
+
                       </>
                     ) : (
                       msg.content
@@ -625,23 +772,33 @@ function App() {
         {/* ── Input Area ── */}
         <div className="input-area">
           {/* Voice state indicator */}
-          {voiceState && (
+          {voiceState && voiceState !== "recording" && (
             <div className={`voice-status ${voiceState}`}>
-              {voiceState === "recording" && "🔴 Recording... Click mic to stop"}
               {voiceState === "processing" && "⏳ Processing your voice..."}
               {voiceState === "speaking" && "🔊 Playing response..."}
             </div>
           )}
 
           <div className="input-wrapper">
-            {/* Microphone button */}
+            {/* Microphone button (Batch) */}
             <button
-              className={`mic-btn ${isRecording ? "recording" : ""}`}
+              className={`mic-btn ${isRecording && recordingMode === "batch" ? "recording" : ""}`}
               onClick={toggleRecording}
-              disabled={!isConnected || isStreaming || voiceState === "processing"}
-              title={isRecording ? "Stop recording" : "Start voice input"}
+              disabled={(isRecording && recordingMode !== "batch") || !isConnected || isStreaming || voiceState === "processing"}
+              title={isRecording && recordingMode === "batch" ? "Stop recording" : "Start Whisper (Batch)"}
             >
-              {isRecording ? "⏹" : "🎤"}
+              {isRecording && recordingMode === "batch" ? "⏹" : "🎤"}
+            </button>
+
+            {/* Microphone button (Stream) */}
+            <button
+              className={`mic-btn ${isRecording && recordingMode === "stream" ? "recording" : ""}`}
+              onClick={() => isRecording ? stopRecording() : startStreamingRecording()}
+              disabled={(isRecording && recordingMode !== "stream") || !isConnected || isStreaming || voiceState === "processing"}
+              title={isRecording && recordingMode === "stream" ? "Stop stream" : "Start Vosk (Stream)"}
+              style={{ marginLeft: "8px" }}
+            >
+              {isRecording && recordingMode === "stream" ? "⏹" : "🎙️"}
             </button>
 
             <textarea
@@ -651,7 +808,7 @@ function App() {
               onKeyDown={handleKeyDown}
               placeholder="Message Sara..."
               rows={1}
-              disabled={!isConnected || isStreaming || !activeChat}
+              disabled={!isConnected || isStreaming || !activeChat || isRecording}
             />
 
             {/* Mute/unmute TTS toggle */}

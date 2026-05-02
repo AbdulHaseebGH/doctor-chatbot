@@ -1,0 +1,11 @@
+City Medical Clinic has three doctors on staff. Each doctor has a specific specialty and available days.
+
+Dr. Ahmed is a General Practitioner. He is available Monday through Saturday. Dr. Ahmed handles general consultations, routine check-ups, minor illnesses, and referrals to specialists. He is the best first point of contact for most health concerns.
+
+Dr. Alina is a Pediatrician specializing in children's health. She is available on Monday, Wednesday, and Friday. Dr. Alina handles newborns, infants, children, and adolescents up to age 18. She provides vaccinations, growth assessments, and developmental screenings.
+
+Dr. Khan is a Cardiologist specializing in heart and cardiovascular conditions. He is available on Tuesday, Thursday, and Saturday. Dr. Khan handles patients with chest pain, high blood pressure, heart palpitations, shortness of breath, and post-cardiac event follow-up.
+
+For any emergency involving chest pain or difficulty breathing, patients should call 911 or go to the ER immediately — do not wait for a clinic appointment.
+
+If you are unsure which doctor to see, speak to the receptionist who will direct you to the most appropriate doctor based on your symptoms.

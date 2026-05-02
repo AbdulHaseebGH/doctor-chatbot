@@ -132,7 +132,49 @@ async def websocket_chat(websocket: WebSocket, session_id: str):
         await websocket.close()
 
 
-# ========================== VOICE ENDPOINTS ==========================
+# ========================== STREAMING ASR PROXY (Phase 0) ==========================
+
+@app.websocket("/ws/asr-stream")
+async def ws_asr_stream(websocket: WebSocket):
+    """
+    WebSocket proxy: browser → gateway → ASR Vosk streaming service.
+    Browser sends raw 16kHz PCM binary chunks.
+    ASR service sends JSON: {"partial": ...} | {"text": ...} | {"done": true}
+    Gateway forwards both directions transparently.
+    """
+    import websockets as ws_lib
+
+    await websocket.accept()
+    asr_ws_url = ASR_URL.replace("http://", "ws://") + "/ws/asr-stream"
+
+    try:
+        async with ws_lib.connect(asr_ws_url) as asr_ws:
+            async def forward_to_asr():
+                """Browser → ASR: forward binary audio chunks."""
+                try:
+                    while True:
+                        data = await websocket.receive_bytes()
+                        await asr_ws.send(data)
+                except WebSocketDisconnect:
+                    await asr_ws.send(b"")  # signal end-of-stream to ASR
+
+            async def forward_to_browser():
+                """ASR → Browser: forward transcript JSON messages."""
+                async for message in asr_ws:
+                    await websocket.send_text(message)
+
+            # Run both directions concurrently
+            await asyncio.gather(forward_to_asr(), forward_to_browser())
+
+    except WebSocketDisconnect:
+        pass
+    except Exception as e:
+        print(f"[GATEWAY] ASR stream proxy error: {e}")
+        try:
+            await websocket.close()
+        except Exception:
+            pass
+
 
 @app.post("/api/voice/transcribe")
 async def voice_transcribe(file: UploadFile = File(...)):

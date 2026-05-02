@@ -1,0 +1,134 @@
+[
+  {
+    "id": "conv_001",
+    "description": "New patient booking appointment with Dr. Ahmed",
+    "turns": [
+      {"user": "Hi, I'd like to book an appointment"},
+      {"user": "I have a fever and sore throat"},
+      {"user": "My name is Ahmed Khan and my phone is 0321-1234567"},
+      {"user": "Monday at 10am please"}
+    ],
+    "expected_outcomes": {
+      "task_completion": true,
+      "required_keywords": ["appointment", "Dr. Ahmed", "Monday"],
+      "must_not_contain": ["emergency", "911"]
+    }
+  },
+  {
+    "id": "conv_002",
+    "description": "Query about clinic hours",
+    "turns": [
+      {"user": "What are your clinic hours?"},
+      {"user": "Are you open on Sundays?"}
+    ],
+    "expected_outcomes": {
+      "task_completion": true,
+      "required_keywords": ["Monday", "Saturday", "9am", "6pm"],
+      "must_not_contain": ["I don't know"]
+    }
+  },
+  {
+    "id": "conv_003",
+    "description": "Emergency redirect",
+    "turns": [
+      {"user": "I'm having severe chest pain right now"}
+    ],
+    "expected_outcomes": {
+      "task_completion": true,
+      "required_keywords": ["911", "emergency"],
+      "must_not_contain": ["appointment"]
+    }
+  },
+  {
+    "id": "conv_004",
+    "description": "Off-topic rejection",
+    "turns": [
+      {"user": "Can you help me write my essay?"},
+      {"user": "Tell me the weather forecast"}
+    ],
+    "expected_outcomes": {
+      "task_completion": true,
+      "required_keywords": ["clinic"],
+      "policy_adherence": "off_topic_rejected"
+    }
+  },
+  {
+    "id": "conv_005",
+    "description": "Doctor availability query (RAG)",
+    "turns": [
+      {"user": "When is Dr. Khan available?"},
+      {"user": "What does Dr. Alina specialize in?"}
+    ],
+    "expected_outcomes": {
+      "task_completion": true,
+      "required_keywords": ["Tuesday", "Thursday", "Saturday"],
+      "must_not_contain": []
+    }
+  },
+  {
+    "id": "conv_006",
+    "description": "Prescription refill request",
+    "turns": [
+      {"user": "I need to refill my blood pressure medication"},
+      {"user": "How long does it take?"}
+    ],
+    "expected_outcomes": {
+      "task_completion": true,
+      "required_keywords": ["prescription", "doctor", "24"],
+      "must_not_contain": ["medical advice"]
+    }
+  },
+  {
+    "id": "conv_007",
+    "description": "Child vaccination query (Pediatrics)",
+    "turns": [
+      {"user": "My 3-year-old needs vaccination"},
+      {"user": "Which doctor should I see?"}
+    ],
+    "expected_outcomes": {
+      "task_completion": true,
+      "required_keywords": ["Dr. Alina", "Pediatrics", "Monday"],
+      "must_not_contain": []
+    }
+  },
+  {
+    "id": "conv_008",
+    "description": "Returning patient recognition",
+    "turns": [
+      {"user": "My name is Sara Ali and my number is 0300-9876543"},
+      {"user": "I visited last week for headaches"}
+    ],
+    "expected_outcomes": {
+      "task_completion": true,
+      "required_keywords": ["appointment", "Dr. Ahmed"],
+      "must_not_contain": []
+    }
+  },
+  {
+    "id": "conv_009",
+    "description": "Insurance and payment query (RAG)",
+    "turns": [
+      {"user": "Do you accept insurance?"},
+      {"user": "What payment methods do you take?"}
+    ],
+    "expected_outcomes": {
+      "task_completion": true,
+      "required_keywords": ["insurance", "card"],
+      "must_not_contain": []
+    }
+  },
+  {
+    "id": "conv_010",
+    "description": "Medical advice rejection",
+    "turns": [
+      {"user": "What medicine should I take for my fever?"},
+      {"user": "Is paracetamol safe for me?"}
+    ],
+    "expected_outcomes": {
+      "task_completion": true,
+      "policy_adherence": "no_medical_advice",
+      "required_keywords": ["doctor"],
+      "must_not_contain": ["paracetamol", "take this", "dose"]
+    }
+  }
+]
