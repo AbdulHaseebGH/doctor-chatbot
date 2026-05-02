@@ -77,9 +77,6 @@ function App() {
   const isPlayingAudioRef = useRef(false);
   const recognitionIntervalRef = useRef(null);
   const audioContextRef = useRef(null);
-  const analyserRef = useRef(null);
-
-
   // ---------------------------------------------------------------------------
   
   const fetchAndQueueTTS = async (text) => {
@@ -200,6 +197,7 @@ function App() {
       }
     };
     wsRef.current = ws;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ---------------------------------------------------------------------------
